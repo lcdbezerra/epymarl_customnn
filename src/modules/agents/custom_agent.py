@@ -1,0 +1,29 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from utils.nn_utils import net_from_yaml, Network
+
+class CustomAgent(nn.Module):
+    def __init__(self, input_shape, args):
+        super(CustomAgent, self).__init__()
+        self.args = args
+
+        if not isinstance(input_shape, tuple): 
+            self.in_shape = (input_shape,)
+        else:
+            self.in_shape = input_shape
+        self.n_actions = args.n_actions
+        self.n_agents = args.n_agents
+        
+        target_shape = (args.n_actions,)
+        self.net, self.out_shape = net_from_yaml(args.agent_arch, self.in_shape, 
+                                                 target_shape=target_shape)
+        self.net = Network(self.net, self.in_shape)
+        
+    def forward(self, input, h=None):
+        v, h = self.net(input, h)
+        return v, h
+
+    def init_hidden(self):
+        return None
