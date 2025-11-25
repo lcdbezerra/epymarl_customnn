@@ -93,21 +93,18 @@ def layer_from_dict(layer_dict, input_shape):
     layer = layer_config["class"](**kwargs)
     
     # Compute output shape
-    x = torch.rand(input_shape)
+    x = torch.empty(1, *input_shape)
     with torch.inference_mode():
         if layer_type.startswith("batchNorm"):
-            output_shape = input_shape
+            output_shape = (1, *input_shape)
         elif layer_type == "flatten":
-            output_shape = (prod(input_shape),)
-        elif layer_type == "interpolate":
-            x = x.unsqueeze(0)
-            output_shape = layer(x).shape[1:]
+            output_shape = (1, prod(input_shape))
         elif layer_type == "LSTM":
             output_shape = layer(x)[0].shape
         else:
             output_shape = layer(x).shape
 
-    return layer, output_shape
+    return layer, output_shape[1:]
 
 def net_from_yaml(layer_list, input_shape, target_shape=None):
     """
