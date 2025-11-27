@@ -22,10 +22,6 @@ net_config = {
         "class": nn.ReLU, 
         "kwargs": [],
     },
-    "avgPool2d": {
-        "class": nn.AvgPool2d, 
-        "kwargs": ["kernel_size", "stride", "padding"],
-    },
     "linear": {
         "class": nn.Linear, 
         "kwargs": ["in_features", "out_features", "bias"],
@@ -146,6 +142,7 @@ def net_from_yaml(layer_list, input_shape, target_shape=None):
             layers.append(layer)
     
     return nn.Sequential(*layers), current_shape
+
 
 class Network(nn.Module):
     def __init__(self, net, input_shape):
