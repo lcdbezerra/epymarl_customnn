@@ -94,7 +94,7 @@ def layer_from_dict(layer_dict, input_shape):
     
     # Compute output shape
     x = torch.empty(1, *input_shape)
-    with torch.inference_mode():
+    with torch.no_grad():
         if layer_type.startswith("batchNorm"):
             output_shape = (1, *input_shape)
         elif layer_type == "flatten":
@@ -158,7 +158,7 @@ class Network(nn.Module):
         device = next(self.net.parameters()).device
         v = torch.rand(batch_size,*self.input_shape).to(device)
         hidden_lst = []
-        with torch.inference_mode():
+        with torch.no_grad():
             for layer in self.net:
                 if isinstance(layer, nn.GRUCell):
                     v = layer(v)
@@ -188,7 +188,7 @@ class Network(nn.Module):
         return v, hidden_lst
     
     def get_output_shape(self):
-        with torch.inference_mode():
+        with torch.no_grad():
             v = torch.empty(1,*self.input_shape)
             v, hidden_lst = self.forward(v)
         return v.shape[1:]
