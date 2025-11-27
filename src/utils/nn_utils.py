@@ -171,9 +171,9 @@ class Network(nn.Module):
                     hidden_lst.append(tuple())
         return hidden_lst
 
-    def forward(self, input, hidden_lst=None):
-        v = input
-        hidden_lst = hidden_lst if hidden_lst is not None else self.init_hidden(batch_size=input.shape[0])
+    def forward(self, v, hidden_lst=None):
+        # Assumes v has shape (batch_size, *input_shape)
+        hidden_lst = hidden_lst if hidden_lst is not None else self.init_hidden(batch_size=v.shape[0])
         for i, layer in enumerate(self.net):
             if isinstance(layer, nn.GRUCell):
                 h = hidden_lst[i][0]
