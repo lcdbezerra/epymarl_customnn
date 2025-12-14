@@ -52,6 +52,30 @@ net_config = {
     }
 }
 
+def get_layer_output_shape(layer, layer_type, input_shape):
+    """
+    Compute the output shape of a layer given its type and input shape.
+    
+    Args:
+        layer: The PyTorch layer instance
+        layer_type: String identifier for the layer type
+        input_shape: Shape of the input tensor (tuple, without batch dimension)
+    
+    Returns:
+        output_shape: Shape of the output tensor (tuple, with batch dimension)
+    """
+    x = torch.empty(1, *input_shape)
+    with torch.no_grad():
+        if layer_type.startswith("batchNorm"):
+            output_shape = (1, *input_shape)
+        elif layer_type == "flatten":
+            output_shape = (1, prod(input_shape))
+        elif layer_type == "LSTM":
+            output_shape = layer(x)[0].shape
+        else:
+            output_shape = layer(x).shape
+    return output_shape[1:]
+
 def layer_from_dict(layer_dict, input_shape):
     """
     Build a PyTorch layer from a dictionary representation.
@@ -68,7 +92,7 @@ def layer_from_dict(layer_dict, input_shape):
     assert "type" in layer_dict, f"Layer dictionary must have 'type' key: {layer_dict}"
     
     layer_type = layer_dict["type"]
-    assert layer_type in net_config.keys(), f"Unexpected layer type: {layer_type}"
+    assert layer_type in net_config.keys(), f"Unexpected layer type: {layer_type}. Available types: {', '.join(list(net_config.keys()))}"
 
     kwargs = {}
     layer_config = net_config[layer_type]
@@ -89,18 +113,9 @@ def layer_from_dict(layer_dict, input_shape):
     layer = layer_config["class"](**kwargs)
     
     # Compute output shape
-    x = torch.empty(1, *input_shape)
-    with torch.no_grad():
-        if layer_type.startswith("batchNorm"):
-            output_shape = (1, *input_shape)
-        elif layer_type == "flatten":
-            output_shape = (1, prod(input_shape))
-        elif layer_type == "LSTM":
-            output_shape = layer(x)[0].shape
-        else:
-            output_shape = layer(x).shape
+    output_shape = get_layer_output_shape(layer, layer_type, input_shape)
 
-    return layer, output_shape[1:]
+    return layer, output_shape
 
 def net_from_yaml(layer_list, input_shape, target_shape=None):
     """
@@ -144,9 +159,9 @@ def net_from_yaml(layer_list, input_shape, target_shape=None):
     return nn.Sequential(*layers), current_shape
 
 
-class Network(nn.Module):
+class SequentialCustomNetwork(nn.Module):
     def __init__(self, net, input_shape):
-        super(Network, self).__init__()
+        super(SequentialCustomNetwork, self).__init__()
         self.net = net
         self.input_shape = input_shape
 
