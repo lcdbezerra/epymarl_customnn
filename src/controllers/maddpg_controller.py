@@ -77,10 +77,23 @@ class MADDPGMAC:
         return agent_outs
 
     def init_hidden(self, batch_size):
-        self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents, -1)  # bav
+        self.hidden_states = self.expand_hidden_states(self.agent.init_hidden(), batch_size)
 
     def init_hidden_one_agent(self, batch_size):
-        self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(batch_size, -1)  # bav
+        self.hidden_states = self.expand_hidden_states(self.agent.init_hidden(), batch_size, n_agents=1)
+        
+    def expand_hidden_states(self, hidden_states, batch_size, n_agents=None):
+        n_agents = n_agents if n_agents is not None else self.n_agents
+        if isinstance(hidden_states, list):
+            hidden_states = [
+                tuple([x.expand(batch_size*self.n_agents, -1) for x in h])
+                for h in hidden_states
+            ]
+        elif isinstance(hidden_states, th.Tensor):
+            hidden_states = hidden_states.expand(batch_size*n_agents, -1)
+        else:
+            raise ValueError(f"Unexpected hidden states type: {type(hidden_states)}")
+        return hidden_states
 
     def parameters(self):
         return self.agent.parameters()

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.nn_utils import net_from_yaml, Network
+from utils.nn_utils import net_from_yaml, SequentialCustomNetwork
 
 class CustomAgent(nn.Module):
     def __init__(self, input_shape, args):
@@ -20,11 +20,11 @@ class CustomAgent(nn.Module):
         self.net, self.out_shape = net_from_yaml(
             args.agent_arch, self.in_shape, target_shape=target_shape
         )
-        self.net = Network(self.net, self.in_shape)
+        self.net = SequentialCustomNetwork(self.net, self.in_shape)
         
     def forward(self, input, h=None):
         v, h = self.net(input, h)
         return v, h
 
-    def init_hidden(self):
-        return None
+    def init_hidden(self, batch_size=1):
+        return self.net.init_hidden(batch_size)
