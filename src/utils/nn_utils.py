@@ -8,47 +8,61 @@ class Interpolate(nn.Module):
     def __init__(self, scale_factor, mode="bilinear"):
         super(Interpolate, self).__init__()
         self.interp = nn.functional.interpolate
-        # self.size = size
         self.scale_factor = scale_factor
         self.mode = mode
-        
+
     def forward(self, x):
         x = self.interp(x, scale_factor=self.scale_factor, mode=self.mode, align_corners=False)
         return x
 
-
+# Any keys specified in the config layer dicts (other than "type") are passed
+# directly as keyword arguments to the underlying PyTorch layer class.
+# Some kwargs can be inferred from the current input shape using `infer_kwargs`.
+# These kwargs must NOT be provided explicitly in the config.
 net_config = {
+    # relu: no kwargs
     "relu": {
-        "class": nn.ReLU, 
-        "kwargs": [],
+        "class": nn.ReLU,
     },
+    # linear: in_features (inferred), out_features, bias(optional)
     "linear": {
-        "class": nn.Linear, 
-        "kwargs": ["in_features", "out_features", "bias"],
-        "inferFirst": True,
+        "class": nn.Linear,
+        "infer_kwargs": {
+            "in_features": lambda in_shape: in_shape[0],
+        },
+        "required": ["out_features"],
     },
+    # batchNorm1d: num_features (inferred)
     "batchNorm1d": {
-        "class": nn.BatchNorm1d, 
-        "kwargs": ["num_features"],
-        "inferFirst": True,
+        "class": nn.BatchNorm1d,
+        "infer_kwargs": {
+            "num_features": lambda in_shape: in_shape[0],
+        },
     },
+    # flatten: no kwargs
     "flatten": {
-        "class": nn.Flatten, 
-        "kwargs": [],
+        "class": nn.Flatten,
     },
+    # interpolate: scale_factor, mode(optional)
     "interpolate": {
-        "class": Interpolate, 
-        "kwargs": ["scale_factor"],
+        "class": Interpolate,
+        "required": ["scale_factor"],
     },
-    "GRU": {
+    # gru: input_size (inferred), hidden_size
+    "gru": {
         "class": nn.GRUCell,
-        "kwargs": ["input_size", "hidden_size"],
-        "inferFirst": True,
+        "infer_kwargs": {
+            "input_size": lambda in_shape: in_shape[0],
+        },
+        "required": ["hidden_size"],
     },
-    "LSTM": {
+    # lstm: input_size (inferred), hidden_size
+    "lstm": {
         "class": nn.LSTMCell,
-        "kwargs": ["input_size", "hidden_size"],
-        "inferFirst": True,
+        "infer_kwargs": {
+            "input_size": lambda in_shape: in_shape[0],
+        },
+        "required": ["hidden_size"],
     }
 }
 
@@ -70,7 +84,7 @@ def get_layer_output_shape(layer, layer_type, input_shape):
             output_shape = (1, *input_shape)
         elif layer_type == "flatten":
             output_shape = (1, prod(input_shape))
-        elif layer_type == "LSTM":
+        elif layer_type == "lstm":
             output_shape = layer(x)[0].shape
         else:
             output_shape = layer(x).shape
@@ -81,12 +95,14 @@ def layer_from_dict(layer_dict, input_shape):
     Build a PyTorch layer from a dictionary representation.
     
     Args:
-        layer_dict: Dictionary with 'type' key and optional layer-specific parameters
+        layer_dict: Dictionary with 'type' key and any additional keys to be used
+                    as keyword arguments for the underlying PyTorch layer. All
+                    non-'type' keys are passed directly as **kwargs.
         input_shape: Shape of the input tensor (tuple)
     
     Returns:
-        layer: The constructed PyTorch layer
-        output_shape: Shape of the output tensor (tuple)
+        layer: An instance of the PyTorch layer class specified in the config
+        output_shape: Shape of the output tensor (tuple), no batch dimension
     """
     assert isinstance(layer_dict, dict), f"Expected dictionary, got {type(layer_dict)}"
     assert "type" in layer_dict, f"Layer dictionary must have 'type' key: {layer_dict}"
@@ -94,22 +110,35 @@ def layer_from_dict(layer_dict, input_shape):
     layer_type = layer_dict["type"]
     assert layer_type in net_config.keys(), f"Unexpected layer type: {layer_type}. Available types: {', '.join(list(net_config.keys()))}"
 
-    kwargs = {}
     layer_config = net_config[layer_type]
-    
-    # Handle layers that infer first parameter from input_shape
-    if layer_config.get("inferFirst", False):
-        first_kwarg = layer_config["kwargs"][0]
-        if first_kwarg == "shape":
-            kwargs[first_kwarg] = input_shape
-        else:
-            kwargs[first_kwarg] = input_shape[0]
-    
-    # Add remaining parameters from layer_dict
-    for kwarg_name in layer_config["kwargs"]:
-        if kwarg_name in layer_dict:
-            kwargs[kwarg_name] = layer_dict[kwarg_name]
-    
+
+    # Start with any kwargs inferred from the input shape
+    kwargs = {}
+    infer_kwargs = layer_config.get("infer_kwargs", {})
+    for name, fn in infer_kwargs.items():
+        kwargs[name] = fn(input_shape)
+
+    # Add parameters from layer_dict (user-specified args)
+    for key, value in layer_dict.items():
+        if key == "type":
+            continue
+        if key in infer_kwargs:
+            raise ValueError(
+                f"Layer type '{layer_type}' received YAML kwarg '{key}' which is "
+                f"also inferred via infer_kwargs. Remove it from YAML to avoid ambiguity."
+            )
+        kwargs[key] = value
+
+    # Ensure all required kwargs are present in the YAML
+    required_keys = layer_config.get("required", [])
+    missing_required = [k for k in required_keys if k not in layer_dict]
+    if missing_required:
+        raise ValueError(
+            f"Layer type '{layer_type}' is missing required arguments: "
+            f"{', '.join(missing_required)}"
+        )
+
+    # Instantiate layer
     layer = layer_config["class"](**kwargs)
     
     # Compute output shape
@@ -117,19 +146,19 @@ def layer_from_dict(layer_dict, input_shape):
 
     return layer, output_shape
 
-def net_from_yaml(layer_list, input_shape, target_shape=None):
+def net_from_args(layer_list, input_shape, target_shape=None):
     """
     Build a PyTorch Sequential network from a list of layer dictionaries.
     
     Args:
-        layer_list: List of dictionaries, each with 'type' key and optional parameters
-        input_shape: Shape of the input tensor (tuple)
-        target_shape: Optional target output shape. If provided and is 1D, a final
+        layer_list: List of dictionaries, each with 'type' key and other arguments
+        input_shape: Shape of the input tensor (tuple), no batch dimension
+        target_shape: Optional target output shape (tuple), no batch dimension. If provided and is 1D, a final
                      linear layer will be appended to match this shape.
     
     Returns:
-        net: nn.Sequential network
-        output_shape: Final output shape (tuple)
+        net: nn.Sequential network, flattened output
+        output_shape: Final output shape (tuple), no batch dimension
     """
     assert isinstance(layer_list, list), f"Expected list of layer dictionaries, got {type(layer_list)}"
     

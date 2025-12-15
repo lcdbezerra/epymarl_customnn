@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.nn_utils import net_from_yaml, SequentialCustomNetwork
+from utils.nn_utils import net_from_args, SequentialCustomNetwork
 
 class CustomAgent(nn.Module):
     def __init__(self, input_shape, args):
@@ -17,7 +17,7 @@ class CustomAgent(nn.Module):
         self.n_agents = args.n_agents
         
         target_shape = (args.n_actions,)
-        self.net, self.out_shape = net_from_yaml(
+        self.net, self.out_shape = net_from_args(
             args.agent_arch, self.in_shape, target_shape=target_shape
         )
         self.net = SequentialCustomNetwork(self.net, self.in_shape)
