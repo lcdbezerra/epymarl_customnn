@@ -146,7 +146,7 @@ def layer_from_dict(layer_dict, input_shape):
 
     return layer, output_shape
 
-def net_from_args(layer_list, input_shape, target_shape=None):
+def net_from_args(layer_list, input_shape, target_dim=None):
     """
     Build a PyTorch Sequential network from a list of layer dictionaries.
     
@@ -162,7 +162,7 @@ def net_from_args(layer_list, input_shape, target_shape=None):
     """
     assert isinstance(layer_list, list), f"Expected list of layer dictionaries, got {type(layer_list)}"
     
-    # Automatically prepend flatten layer (matching current behavior)
+    # Automatically prepend flatten layer
     layer_list = [{"type": "flatten"}] + layer_list
     
     # Process each layer sequentially
@@ -173,13 +173,13 @@ def net_from_args(layer_list, input_shape, target_shape=None):
         layer, current_shape = layer_from_dict(layer_dict, current_shape)
         layers.append(layer)
     
-    # Optionally append final linear layer if target_shape is provided
-    if target_shape is not None:
-        assert len(target_shape) == 1, "Target shape should be the output of a linear layer"
-        if current_shape != target_shape:
+    # Optionally append final linear layer if target_dim is provided
+    if target_dim is not None:
+        assert isinstance(target_dim, int), "Target dimension must be an integer"
+        if current_shape != (target_dim,):
             final_layer_dict = {
                 "type": "linear",
-                "out_features": target_shape[0],
+                "out_features": target_dim,
                 "bias": False
             }
             layer, current_shape = layer_from_dict(final_layer_dict, current_shape)

@@ -16,9 +16,9 @@ class CustomAgent(nn.Module):
         self.n_actions = args.n_actions
         self.n_agents = args.n_agents
         
-        target_shape = (args.n_actions,)
-        self.net, self.out_shape = net_from_args(
-            args.agent_arch, self.in_shape, target_shape=target_shape
+        target_dim = args.n_actions
+        self.net, self.out_dim = net_from_args(
+            args.agent_arch, self.in_shape, target_dim=target_dim
         )
         self.net = SequentialCustomNetwork(self.net, self.in_shape)
         
