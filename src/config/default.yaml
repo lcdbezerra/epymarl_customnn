@@ -56,7 +56,7 @@ agent_arch: # List of layers defining the agent's architecture
     out_features: 64
     bias: True
   - type: relu
-  - type: GRU
+  - type: gru
     hidden_size: 64
 
 # --- Experiment running params ---
