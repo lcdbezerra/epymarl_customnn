@@ -2,18 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from numpy import prod
-    
-
-class Interpolate(nn.Module):
-    def __init__(self, scale_factor, mode="bilinear"):
-        super(Interpolate, self).__init__()
-        self.interp = nn.functional.interpolate
-        self.scale_factor = scale_factor
-        self.mode = mode
-
-    def forward(self, x):
-        x = self.interp(x, scale_factor=self.scale_factor, mode=self.mode, align_corners=False)
-        return x
 
 # Any keys specified in the config layer dicts (other than "type") are passed
 # directly as keyword arguments to the underlying PyTorch layer class.
@@ -42,11 +30,6 @@ net_config = {
     # flatten: no kwargs
     "flatten": {
         "class": nn.Flatten,
-    },
-    # interpolate: scale_factor, mode(optional)
-    "interpolate": {
-        "class": Interpolate,
-        "required": ["scale_factor"],
     },
     # gru: input_size (inferred), hidden_size
     "gru": {
