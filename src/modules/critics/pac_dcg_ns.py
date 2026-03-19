@@ -1,13 +1,14 @@
 # code adapted from https://github.com/wendelinboehmer/dcg
 import contextlib
 import itertools
+from copy import deepcopy
 
 import numpy as np
 import torch as th
 import torch.nn as nn
 import torch_scatter
 
-from modules.agents import REGISTRY as agent_REGISTRY
+from modules.agents.custom_agent import CustomAgent
 
 
 class DCGCriticNS:
@@ -64,9 +65,12 @@ class DCGCriticNS:
                 ep_batch.batch_size, self.n_agents, -1
             )
             for i, ag in enumerate(self.agents):
-                self.hidden_states[i] = ag(
-                    agent_inputs[:, i, :], self.hidden_states[i]
-                )[1].view(ep_batch.batch_size, -1)
+                _, self._agent_hidden[i] = ag(
+                    agent_inputs[:, i, :], self._agent_hidden[i]
+                )
+                self.hidden_states[i] = self._extract_recurrent_hidden(
+                    self._agent_hidden[i]
+                )
             # Compute all utility functions
             f_i, f_ij = [], []
             for i, f in enumerate(self.utility_fun):
@@ -278,10 +282,24 @@ class DCGCriticNS:
         )
         self.edges_n_in = self.edges_n_in.float()
 
+    @staticmethod
+    def _extract_recurrent_hidden(hidden_lst):
+        """Return the hidden-state tensor of the last recurrent layer."""
+        for h_tuple in reversed(hidden_lst):
+            if len(h_tuple) > 0:
+                return h_tuple[0]
+        return None
+
     def _build_agents(self, input_shape):
         """Overloads method to build a list of input-encoders for the different agents."""
+        encoder_args = deepcopy(self.args)
+        encoder_args.agent_arch = [
+            {"type": "linear", "out_features": self.args.hidden_dim, "bias": True},
+            {"type": "relu"},
+            {"type": "gru", "hidden_size": self.args.hidden_dim},
+        ]
         self.agents = [
-            agent_REGISTRY["rnn_feat"](input_shape, self.args)
+            CustomAgent(input_shape, encoder_args)
             for _ in range(self.n_agents)
         ]
 
@@ -354,9 +372,10 @@ class DCGCriticNS:
 
     def init_hidden(self, batch_size):
         """Overloads method to make sure the hidden states of all agents are intialized."""
+        self._agent_hidden = [ag.init_hidden(batch_size) for ag in self.agents]
         self.hidden_states = [
-            ag.init_hidden().expand(batch_size, -1) for ag in self.agents
-        ]  # bv
+            self._extract_recurrent_hidden(h) for h in self._agent_hidden
+        ]
 
     def forward(
         self,

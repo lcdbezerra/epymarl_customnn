@@ -267,37 +267,48 @@ def run_sequential(args, logger):
     logger.console_logger.info("Finished Training")
 
 
-def resolve_agent_config(config, _log):
-    """Resolve legacy agent types (rnn, rnn_ns) into CustomAgent-compatible config.
-
-    When agent is "rnn" or "rnn_ns", generates an equivalent agent_arch from
-    hidden_dim and use_rnn, then remaps agent to "custom" or "custom_ns".
-    """
-    agent = config.get("agent", "custom")
-    if agent not in ("rnn", "rnn_ns"):
-        return config
-
-    hidden_dim = config.get("hidden_dim", 64)
-    use_rnn = config.get("use_rnn", True)
-
+def _rnn_agent_arch(hidden_dim, use_rnn):
+    """Generate agent_arch equivalent to the legacy RNNAgent / RNNFeatureAgent."""
     if use_rnn:
-        arch = [
+        return [
             {"type": "linear", "out_features": hidden_dim, "bias": True},
             {"type": "relu"},
             {"type": "gru", "hidden_size": hidden_dim},
         ]
-    else:
-        arch = [
-            {"type": "linear", "out_features": hidden_dim, "bias": True},
-            {"type": "relu"},
-            {"type": "linear", "out_features": hidden_dim, "bias": True},
-            {"type": "relu"},
-        ]
+    return [
+        {"type": "linear", "out_features": hidden_dim, "bias": True},
+        {"type": "relu"},
+        {"type": "linear", "out_features": hidden_dim, "bias": True},
+        {"type": "relu"},
+    ]
 
-    config["agent_arch"] = arch
-    config["agent"] = "custom_ns" if agent == "rnn_ns" else "custom"
+
+_LEGACY_AGENT_MAP = {
+    "rnn": "custom",
+    "rnn_ns": "custom_ns",
+    "rnn_feat": "custom",
+}
+
+
+def resolve_agent_config(config, _log):
+    """Resolve legacy agent types into CustomAgent-compatible config.
+
+    When agent is "rnn", "rnn_ns", or "rnn_feat", generates an equivalent
+    agent_arch from hidden_dim and use_rnn, then remaps agent to "custom"
+    or "custom_ns".
+    """
+    agent = config.get("agent", "custom")
+    new_agent = _LEGACY_AGENT_MAP.get(agent)
+    if new_agent is None:
+        return config
+
+    hidden_dim = config.get("hidden_dim", 64)
+    use_rnn = config.get("use_rnn", True) if agent != "rnn_feat" else True
+
+    config["agent_arch"] = _rnn_agent_arch(hidden_dim, use_rnn)
+    config["agent"] = new_agent
     _log.info(
-        f"Resolved legacy agent '{agent}' -> '{config['agent']}' "
+        f"Resolved legacy agent '{agent}' -> '{new_agent}' "
         f"with hidden_dim={hidden_dim}, use_rnn={use_rnn}"
     )
     return config
