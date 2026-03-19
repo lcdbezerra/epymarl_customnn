@@ -267,6 +267,42 @@ def run_sequential(args, logger):
     logger.console_logger.info("Finished Training")
 
 
+def resolve_agent_config(config, _log):
+    """Resolve legacy agent types (rnn, rnn_ns) into CustomAgent-compatible config.
+
+    When agent is "rnn" or "rnn_ns", generates an equivalent agent_arch from
+    hidden_dim and use_rnn, then remaps agent to "custom" or "custom_ns".
+    """
+    agent = config.get("agent", "custom")
+    if agent not in ("rnn", "rnn_ns"):
+        return config
+
+    hidden_dim = config.get("hidden_dim", 64)
+    use_rnn = config.get("use_rnn", True)
+
+    if use_rnn:
+        arch = [
+            {"type": "linear", "out_features": hidden_dim, "bias": True},
+            {"type": "relu"},
+            {"type": "gru", "hidden_size": hidden_dim},
+        ]
+    else:
+        arch = [
+            {"type": "linear", "out_features": hidden_dim, "bias": True},
+            {"type": "relu"},
+            {"type": "linear", "out_features": hidden_dim, "bias": True},
+            {"type": "relu"},
+        ]
+
+    config["agent_arch"] = arch
+    config["agent"] = "custom_ns" if agent == "rnn_ns" else "custom"
+    _log.info(
+        f"Resolved legacy agent '{agent}' -> '{config['agent']}' "
+        f"with hidden_dim={hidden_dim}, use_rnn={use_rnn}"
+    )
+    return config
+
+
 def args_sanity_check(config, _log):
     # set CUDA flags
     # config["use_cuda"] = True # Use cuda whenever possible!
@@ -282,5 +318,8 @@ def args_sanity_check(config, _log):
         config["test_nepisode"] = (
             config["test_nepisode"] // config["batch_size_run"]
         ) * config["batch_size_run"]
+
+    # Support legacy agent types (rnn, rnn_ns) by converting to CustomAgent-compatible config.
+    config = resolve_agent_config(config, _log)
 
     return config

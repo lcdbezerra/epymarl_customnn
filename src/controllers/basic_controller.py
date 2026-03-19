@@ -54,16 +54,10 @@ class BasicMAC:
     def expand_hidden_states(self, hidden_states, batch_size, n_agents=None):
         """Expand agent-produced hidden states to (batch_size, n_agents, dim)."""
         n_agents = n_agents if n_agents is not None else self.n_agents
-        if isinstance(hidden_states, list):
-            hidden_states = [
-                tuple(x.unsqueeze(0).expand(batch_size, n_agents, -1) for x in h)
-                for h in hidden_states
-            ]
-        elif isinstance(hidden_states, th.Tensor):
-            hidden_states = hidden_states.unsqueeze(0).expand(batch_size, n_agents, -1)
-        else:
-            raise ValueError(f"Unexpected hidden states type: {type(hidden_states)}")
-        return hidden_states
+        return [
+            tuple(x.unsqueeze(0).expand(batch_size, n_agents, -1) for x in h)
+            for h in hidden_states
+        ]
 
     def _flatten_hidden(self, hidden_states):
         """(batch, n_agents, dim) -> (batch*n_agents, dim) per recurrent layer."""
