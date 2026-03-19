@@ -64,10 +64,12 @@ class MADDPGMAC(BasicMAC):
     def forward(self, ep_batch, t):
         agent_inputs = self._build_inputs(ep_batch, t)
         avail_actions = ep_batch["avail_actions"][:, t]
-        agent_outs, self.hidden_states = self.agent(agent_inputs, self.hidden_states)
+        agent_outs, self._hidden_states_flatten = self.agent(agent_inputs, self._hidden_states_flatten)
         agent_outs = agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
         agent_outs[avail_actions==0] = -1e10
         return agent_outs
 
     def init_hidden_one_agent(self, batch_size):
-        self.hidden_states = self.expand_hidden_states(self.agent.init_hidden(), batch_size, n_agents=1)
+        self._batch_size = batch_size
+        expanded = self.expand_hidden_states(self.agent.init_hidden(), batch_size, n_agents=1)
+        self._hidden_states_flatten = self._flatten_hidden(expanded)
