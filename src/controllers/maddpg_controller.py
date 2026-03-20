@@ -1,4 +1,5 @@
 from controllers.basic_controller import BasicMAC
+from controllers.non_shared_controller import NonSharedMAC
 from components.action_selectors import REGISTRY as action_REGISTRY
 import torch as th
 from torch.autograd import Variable
@@ -48,8 +49,18 @@ def gumbel_softmax(logits, temperature=1.0, hard=False):
 # This multi-agent controller shares parameters between agents
 class MADDPGMAC(BasicMAC):
     def __init__(self, scheme, groups, args):
-        super().__init__(scheme, groups, args)
+        # super().__init__(scheme, groups, args)
+        self.n_agents = args.n_agents
+        self.args = args
+        input_shape = self._get_input_shape(scheme)
+        self._build_agents(input_shape)
+        self.agent_output_type = args.agent_output_type
+
+        # Prevent initialization of action_selector from BasicMAC
         self.action_selector = None
+
+        self._hidden_states_flatten = None
+        self._batch_size = None
 
     def select_actions(self, ep_batch, t_ep, t_env=0, test_mode=False):
         # Only select actions for the selected batch elements in bs
@@ -73,3 +84,32 @@ class MADDPGMAC(BasicMAC):
         self._batch_size = batch_size
         expanded = self.expand_hidden_states(self.agent.init_hidden(), batch_size, n_agents=1)
         self._hidden_states_flatten = self._flatten_hidden(expanded)
+
+
+class NonSharedMADDPGMAC(NonSharedMAC):
+    """MADDPG controller for non-shared-parameter agents."""
+
+    def __init__(self, scheme, groups, args):
+        self.n_agents = args.n_agents
+        self.args = args
+        input_shape = self._get_input_shape(scheme)
+        self._build_agents(input_shape)
+        self.agent_output_type = args.agent_output_type
+        self.action_selector = None
+
+    def select_actions(self, ep_batch, t_ep, t_env=0, test_mode=False):
+        agent_outputs = self.forward(ep_batch, t_ep)
+        chosen_actions = gumbel_softmax(agent_outputs, hard=True).argmax(dim=-1)
+        return chosen_actions
+
+    def target_actions(self, ep_batch, t_ep):
+        agent_outputs = self.forward(ep_batch, t_ep)
+        return onehot_from_logits(agent_outputs)
+
+    def forward(self, ep_batch, t, test_mode=False):
+        agent_inputs = self._build_inputs(ep_batch, t)
+        avail_actions = ep_batch["avail_actions"][:, t]
+        agent_outs, self._hidden_states = self.agent(agent_inputs, self._hidden_states)
+        agent_outs = agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
+        agent_outs[avail_actions == 0] = -1e10
+        return agent_outs
