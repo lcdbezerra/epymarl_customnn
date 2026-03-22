@@ -129,15 +129,17 @@ def layer_from_dict(layer_dict, input_shape):
 
     return layer, output_shape
 
-def net_from_args(layer_list, input_shape, target_dim=None):
+def net_from_args(layer_list, input_shape, target_dim=None, last_layer_bias=False):
     """
     Build a PyTorch Sequential network from a list of layer dictionaries.
     
     Args:
         layer_list: List of dictionaries, each with 'type' key and other arguments
         input_shape: Shape of the input tensor (tuple), no batch dimension
-        target_shape: Optional target output shape (tuple), no batch dimension. If provided and is 1D, a final
-                     linear layer will be appended to match this shape.
+        target_dim: Optional output size (int). If provided and the stack does not already
+                    end at that size, a final linear layer is appended.
+        last_layer_bias: If True, the auto-appended final linear layer (when target_dim is used)
+                         uses bias; if False, bias is disabled on that layer.
     
     Returns:
         net: nn.Sequential network, flattened output
@@ -163,7 +165,7 @@ def net_from_args(layer_list, input_shape, target_dim=None):
             final_layer_dict = {
                 "type": "linear",
                 "out_features": target_dim,
-                "bias": False
+                "bias": last_layer_bias,
             }
             layer, current_shape = layer_from_dict(final_layer_dict, current_shape)
             layers.append(layer)

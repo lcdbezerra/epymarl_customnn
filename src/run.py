@@ -307,9 +307,10 @@ def resolve_agent_config(config, _log):
 
     config["agent_arch"] = _rnn_agent_arch(hidden_dim, use_rnn)
     config["agent"] = new_agent
+    config["last_layer_bias"] = True
     _log.info(
         f"Resolved legacy agent '{agent}' -> '{new_agent}' "
-        f"with hidden_dim={hidden_dim}, use_rnn={use_rnn}"
+        f"with hidden_dim={hidden_dim}, use_rnn={use_rnn}, last_layer_bias=True"
     )
     return config
 
