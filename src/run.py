@@ -267,51 +267,24 @@ def run_sequential(args, logger):
     logger.console_logger.info("Finished Training")
 
 
-def _rnn_agent_arch(hidden_dim, use_rnn):
-    """Generate agent_arch equivalent to the legacy RNNAgent / RNNFeatureAgent."""
-    if use_rnn:
-        return [
-            {"type": "linear", "out_features": hidden_dim, "bias": True},
-            {"type": "relu"},
-            {"type": "gru", "hidden_size": hidden_dim},
-        ]
-    return [
-        {"type": "linear", "out_features": hidden_dim, "bias": True},
-        {"type": "relu"},
-        {"type": "linear", "out_features": hidden_dim, "bias": True},
-        {"type": "relu"},
-    ]
-
-
-_LEGACY_AGENT_MAP = {
-    "rnn": "custom",
-    "rnn_ns": "custom_ns",
-    "rnn_feat": "custom",
+_MAC_AUTO_RESOLVE = {
+    ("custom", "basic_mac"): "custom_basic_mac",
+    ("custom_ns", "non_shared_mac"): "custom_non_shared_mac",
+    ("custom", "maddpg_mac"): "custom_maddpg_mac",
 }
 
 
-def resolve_agent_config(config, _log):
-    """Resolve legacy agent types into CustomAgent-compatible config.
-
-    When agent is "rnn", "rnn_ns", or "rnn_feat", generates an equivalent
-    agent_arch from hidden_dim and use_rnn, then remaps agent to "custom"
-    or "custom_ns".
-    """
+def resolve_mac_for_agent(config, _log):
+    """Auto-select the appropriate MAC based on the agent type."""
     agent = config.get("agent", "custom")
-    new_agent = _LEGACY_AGENT_MAP.get(agent)
-    if new_agent is None:
-        return config
+    mac = config.get("mac", "basic_mac")
 
-    hidden_dim = config.get("hidden_dim", 64)
-    use_rnn = config.get("use_rnn", True) if agent != "rnn_feat" else True
-
-    config["agent_arch"] = _rnn_agent_arch(hidden_dim, use_rnn)
-    config["agent"] = new_agent
-    config["last_layer_bias"] = True
-    _log.info(
-        f"Resolved legacy agent '{agent}' -> '{new_agent}' "
-        f"with hidden_dim={hidden_dim}, use_rnn={use_rnn}, last_layer_bias=True"
-    )
+    new_mac = _MAC_AUTO_RESOLVE.get((agent, mac))
+    if new_mac is not None:
+        config["mac"] = new_mac
+        _log.info(
+            f"Auto-resolved MAC: '{mac}' -> '{new_mac}' for agent '{agent}'"
+        )
     return config
 
 
@@ -331,7 +304,7 @@ def args_sanity_check(config, _log):
             config["test_nepisode"] // config["batch_size_run"]
         ) * config["batch_size_run"]
 
-    # Support legacy agent types (rnn, rnn_ns) by converting to CustomAgent-compatible config.
-    config = resolve_agent_config(config, _log)
+    # Auto-resolve MAC when custom agents are paired with original MAC names.
+    config = resolve_mac_for_agent(config, _log)
 
     return config
