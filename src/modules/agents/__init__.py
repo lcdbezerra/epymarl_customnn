@@ -3,8 +3,7 @@ from functools import partial
 from .rnn_agent import RNNAgent
 from .rnn_feature_agent import RNNFeatureAgent
 from .rnn_ns_agent import RNNNSAgent
-from .custom_agent import CustomAgent
-from .ns_agent import NSAgent
+from .custom import CustomAgent, NSAgent
 
 REGISTRY = {}
 REGISTRY["rnn"] = RNNAgent

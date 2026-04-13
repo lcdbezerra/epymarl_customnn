@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch as th
 
-from modules.agents.custom_agent import CustomAgent
+from modules.agents.custom.custom_agent import CustomAgent
 
 class NSAgent(nn.Module):
     """
