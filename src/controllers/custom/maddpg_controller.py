@@ -1,25 +1,11 @@
 from controllers.custom.basic_controller import CustomBasicMAC
 from controllers.custom.non_shared_controller import CustomNonSharedMAC
-from controllers.maddpg_controller import (
-    gumbel_softmax, onehot_from_logits,
-)
+from controllers.maddpg_controller import gumbel_softmax, onehot_from_logits
 import torch as th
 
 
 class CustomMADDPGMAC(CustomBasicMAC):
     """MADDPG controller for shared-parameter CustomAgent."""
-
-    def __init__(self, scheme, groups, args):
-        self.n_agents = args.n_agents
-        self.args = args
-        input_shape = self._get_input_shape(scheme)
-        self._build_agents(input_shape)
-        self.agent_output_type = args.agent_output_type
-
-        self.action_selector = None
-
-        self._hidden_states_flatten = None
-        self._batch_size = None
 
     def select_actions(self, ep_batch, t_ep, t_env=0, test_mode=False):
         agent_outputs = self.forward(ep_batch, t_ep)
@@ -46,14 +32,6 @@ class CustomMADDPGMAC(CustomBasicMAC):
 
 class CustomNonSharedMADDPGMAC(CustomNonSharedMAC):
     """MADDPG controller for non-shared-parameter CustomAgent."""
-
-    def __init__(self, scheme, groups, args):
-        self.n_agents = args.n_agents
-        self.args = args
-        input_shape = self._get_input_shape(scheme)
-        self._build_agents(input_shape)
-        self.agent_output_type = args.agent_output_type
-        self.action_selector = None
 
     def select_actions(self, ep_batch, t_ep, t_env=0, test_mode=False):
         agent_outputs = self.forward(ep_batch, t_ep)

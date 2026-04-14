@@ -12,7 +12,8 @@ class BasicMAC:
         self._build_agents(input_shape)
         self.agent_output_type = args.agent_output_type
 
-        self.action_selector = action_REGISTRY[args.action_selector](args)
+        action_selector = getattr(args, "action_selector", None)
+        self.action_selector = None if action_selector is None else action_REGISTRY[action_selector](args)
 
         self.hidden_states = None
 

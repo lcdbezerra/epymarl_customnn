@@ -45,10 +45,6 @@ def gumbel_softmax(logits, temperature=1.0, hard=False):
 
 
 class MADDPGMAC(BasicMAC):
-    def __init__(self, scheme, groups, args):
-        super().__init__(scheme, groups, args)
-        self.action_selector = None
-
     def select_actions(self, ep_batch, t_ep, t_env=0, test_mode=False):
         agent_outputs = self.forward(ep_batch, t_ep)
         chosen_actions = gumbel_softmax(agent_outputs, hard=True).argmax(dim=-1)
