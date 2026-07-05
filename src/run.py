@@ -278,6 +278,24 @@ def resolve_mac_for_agent(config, _log):
     """Auto-select the appropriate MAC based on the agent type."""
     agent = config.get("agent", "custom")
     mac = config.get("mac", "basic_mac")
+    learner = config.get("learner", "")
+
+    # MADDPG uses gumbel / target_actions MACs, not the generic non_shared_mac with
+    # action_selector (which MADDPG configs omit).
+    if learner == "maddpg_learner" and mac == "non_shared_mac":
+        if agent == "custom_ns":
+            config["mac"] = "custom_maddpg_ns_mac"
+            _log.info(
+                "Auto-resolved MAC: 'non_shared_mac' -> 'custom_maddpg_ns_mac' "
+                "for MADDPG with custom_ns agent"
+            )
+        elif agent == "rnn_ns":
+            config["mac"] = "maddpg_ns_mac"
+            _log.info(
+                "Auto-resolved MAC: 'non_shared_mac' -> 'maddpg_ns_mac' "
+                "for MADDPG with rnn_ns agent"
+            )
+        return config
 
     new_mac = _MAC_AUTO_RESOLVE.get((agent, mac))
     if new_mac is not None:

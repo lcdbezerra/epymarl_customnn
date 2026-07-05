@@ -1,4 +1,5 @@
 from controllers.basic_controller import BasicMAC
+from controllers.non_shared_controller import NonSharedMAC
 import torch as th
 from torch.autograd import Variable
 import torch.nn.functional as F
@@ -64,3 +65,10 @@ class MADDPGMAC(BasicMAC):
 
     def init_hidden_one_agent(self, batch_size):
         self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(batch_size, -1)  # bav
+
+
+class NonSharedMADDPGMAC(MADDPGMAC, NonSharedMAC):
+    """MADDPG controller for non-shared agents (e.g. rnn_ns)."""
+
+    def init_hidden(self, batch_size):
+        NonSharedMAC.init_hidden(self, batch_size)

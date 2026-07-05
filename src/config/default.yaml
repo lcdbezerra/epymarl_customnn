@@ -45,7 +45,7 @@ grad_norm_clip: 10 # Reduce magnitude of gradients above this L2 norm
 add_value_last_step: True
 
 # --- Agent parameters ---
-agent: "custom" # Agent type: "custom", "custom_ns", "rnn", "rnn_ns", "rnn_feat"
+agent: "rnn" # Agent type: "custom", "custom_ns", "rnn", "rnn_ns", "rnn_feat"
 hidden_dim: 64 # Hidden dimension for original agents (rnn/rnn_ns/rnn_feat)
 last_layer_bias: False # Bias on the auto-appended final linear to n_actions (custom agents only)
 obs_agent_id: True # Include the agent's one_hot id in the observation
