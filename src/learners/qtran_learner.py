@@ -71,7 +71,7 @@ class QLearner:
             target_mac_hidden_states.append(self.target_mac.hidden_states)
 
         # We don't need the first timesteps Q-Value estimate for calculating targets
-        target_mac_out = th.stack(target_mac_out[:], dim=1)  # Concat across time
+        target_mac_out = th.stack(target_mac_out, dim=1)  # Concat across time
         target_mac_hidden_states = th.stack(target_mac_hidden_states, dim=1)  # btav
 
         # Mask out unavailable actions

@@ -25,11 +25,15 @@ class NSAgent(nn.Module):
         """
         return [agent.init_hidden() for agent in self.agents]
 
-    def forward(self, inputs, hidden_state):
+    def forward(self, inputs, hidden_state) -> tuple[th.Tensor, list]:
         """Forward pass for non-shared agents.
 
         hidden_state: list[n_agents] where each element is the per-agent hidden
                       (list[layer][tuple of tensors with shape (batch, hidden_dim)])
+
+        Returns:
+            q_out: tensor of shape (batch * n_agents, n_actions), flattened across agents.
+            hiddens: list[n_agents] of per-agent hidden states (same structure as hidden_state).
         """
         inputs = inputs.view(-1, self.n_agents, self.input_shape)
 
@@ -40,7 +44,8 @@ class NSAgent(nn.Module):
             qs.append(q)
             hiddens.append(h)
 
-        q_out = th.cat([q.unsqueeze(1) for q in qs], dim=1).view(-1, qs[0].size(-1))
+        out_dim = qs[0].size(-1)
+        q_out = th.stack(qs, dim=1).reshape(-1, out_dim)
         return q_out, hiddens
 
     def cuda(self, device="cuda:0"):
